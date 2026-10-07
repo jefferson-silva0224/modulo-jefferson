@@ -1588,3 +1588,92 @@ Bloquear alterações comuns
 ```
 
 Esse é o fluxo principal que orienta o funcionamento atual do módulo.
+
+### Filtros e pesquisa de Ordens de Serviço
+
+Foi adicionada uma área de filtros na tela principal de Ordens de Serviço para facilitar a localização de registros.
+
+Antes, a tela mostrava todas as ordens cadastradas. Com a nova funcionalidade, é possível pesquisar somente as ordens que atendem aos critérios selecionados.
+
+Os filtros disponíveis são:
+
+* **Empresa:** permite visualizar as ordens de uma empresa específica.
+* **Técnico:** permite visualizar as ordens atribuídas a um determinado técnico.
+* **Status:** permite filtrar por Pendente, Em andamento ou Concluída.
+* **Aviso:** permite pesquisar ordens Atrasadas ou Próximas do vencimento.
+* **Valor mínimo:** mostra somente ordens com valor igual ou superior ao informado.
+* **Valor máximo:** mostra somente ordens com valor igual ou inferior ao informado.
+* **Data prevista inicial e final:** permite definir um período para a data prevista.
+* **Data realizada inicial e final:** permite definir um período para a data em que o serviço foi realizado.
+
+Os filtros podem ser utilizados individualmente ou combinados.
+
+Por exemplo, é possível pesquisar:
+
+* Todas as ordens da empresa **Centro Calçados**.
+* Todas as ordens com status **Concluída**.
+* Todas as ordens de um determinado técnico.
+* Todas as ordens **Atrasadas**.
+* Ordens de uma empresa específica que estejam **Concluídas**.
+* Ordens dentro de determinado período e com uma faixa de valor específica.
+
+Após preencher os filtros, o botão **Pesquisar** aplica os critérios selecionados.
+
+O botão **Limpar filtros** remove os critérios de pesquisa e retorna para a visualização de todas as ordens.
+
+### Funcionamento técnico dos filtros
+
+Os filtros são enviados através do método **GET** para a página principal do módulo.
+
+O processamento é realizado no método `index()` do arquivo:
+
+`controllers/Ordens_servico.php`
+
+O método recebe os parâmetros enviados pela tela, verifica quais filtros foram preenchidos e adiciona as condições correspondentes à consulta no banco de dados.
+
+A consulta é montada somente depois que os dados necessários para empresa e técnico são obtidos. Isso evita conflitos no Query Builder do CodeIgniter.
+
+A filtragem de empresa e técnico utiliza os registros existentes no Perfex:
+
+* Empresas são obtidas da tabela de clientes do Perfex.
+* Técnicos são obtidos dos usuários/funcionários cadastrados no Perfex.
+
+Como a tabela de Ordens de Serviço atualmente armazena o **nome da empresa** e o **nome do técnico**, o sistema primeiro identifica o nome correspondente ao registro selecionado e depois utiliza esse nome na pesquisa das ordens.
+
+### Arquivos envolvidos
+
+A funcionalidade de filtros envolve principalmente dois arquivos:
+
+**Controller:**
+
+`controllers/Ordens_servico.php`
+
+Responsável por receber os filtros, montar a consulta e retornar somente as ordens que correspondem aos critérios.
+
+**View:**
+
+`views/ordens_servico/manage.php`
+
+Responsável por apresentar os campos de filtro, os botões **Pesquisar** e **Limpar filtros** e manter os valores selecionados pelo usuário.
+
+### Problema encontrado durante a implementação
+
+Durante a implementação dos filtros ocorreu um erro de SQL semelhante a:
+
+`You have an error in your SQL syntax ... near 'WHERE empresa = ...'`
+
+O problema aconteceu porque o Query Builder do CodeIgniter estava sendo reutilizado para consultar informações de empresa/técnico enquanto a consulta principal das Ordens de Serviço estava sendo montada.
+
+Isso fez com que partes da primeira consulta fossem reaproveitadas indevidamente na consulta seguinte, resultando em um `WHERE` sem a estrutura correta da consulta.
+
+A solução foi buscar primeiro os dados necessários de empresa e técnico e, somente depois, iniciar uma nova consulta para a tabela de Ordens de Serviço utilizando:
+
+`$this->db->from(db_prefix().'ordens_servico');`
+
+Dessa forma, a consulta principal começa limpa e os filtros são adicionados corretamente.
+
+### Resultado
+
+Com essa alteração, a tela de Ordens de Serviço passou a permitir pesquisas mais específicas sem alterar os registros existentes.
+
+A funcionalidade também facilita a utilização do sistema quando houver uma quantidade maior de Ordens de Serviço cadastradas, pois o usuário não precisa procurar manualmente em toda a lista.

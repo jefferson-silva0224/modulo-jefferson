@@ -55,6 +55,526 @@
                         <hr>
 
 
+                        <!-- ==========================================
+                             FILTROS DE PESQUISA
+                             ========================================== -->
+
+                        <div
+                            class="panel panel-default"
+                            style="margin-bottom: 20px;"
+                        >
+
+                            <div class="panel-heading">
+
+                                <strong>
+                                    <i class="fa fa-filter"></i>
+                                    Filtros de pesquisa
+                                </strong>
+
+                            </div>
+
+
+                            <div class="panel-body">
+
+                                <form
+                                    method="get"
+                                    action="<?php
+                                        echo admin_url(
+                                            'ordens_servico'
+                                        );
+                                    ?>"
+                                >
+
+                                    <div class="row">
+
+
+                                        <!-- EMPRESA -->
+                                        <div class="col-md-3">
+
+                                            <div class="form-group">
+
+                                                <label>
+                                                    Empresa
+                                                </label>
+
+                                                <select
+                                                    name="empresa"
+                                                    class="form-control"
+                                                >
+
+                                                    <option value="">
+                                                        Todas
+                                                    </option>
+
+                                                    <?php foreach (
+                                                        $clientes as $cliente
+                                                    ): ?>
+
+                                                        <option
+                                                            value="<?php
+                                                                echo (int) $cliente->userid;
+                                                            ?>"
+                                                            <?php
+                                                            echo (
+                                                                isset(
+                                                                    $filtros['empresa']
+                                                                )
+                                                                &&
+                                                                $filtros['empresa']
+                                                                == $cliente->userid
+                                                            )
+                                                                ? 'selected'
+                                                                : '';
+                                                            ?>
+                                                        >
+                                                            <?php
+                                                            echo html_escape(
+                                                                $cliente->company
+                                                            );
+                                                            ?>
+                                                        </option>
+
+                                                    <?php endforeach; ?>
+
+                                                </select>
+
+                                            </div>
+
+                                        </div>
+
+
+                                        <!-- TÉCNICO -->
+                                        <div class="col-md-3">
+
+                                            <div class="form-group">
+
+                                                <label>
+                                                    Técnico
+                                                </label>
+
+                                                <select
+                                                    name="tecnico"
+                                                    class="form-control"
+                                                >
+
+                                                    <option value="">
+                                                        Todos
+                                                    </option>
+
+                                                    <?php foreach (
+                                                        $tecnicos as $tecnico
+                                                    ): ?>
+
+                                                        <?php
+                                                        $nome_tecnico =
+                                                            trim(
+                                                                $tecnico->firstname .
+                                                                ' ' .
+                                                                $tecnico->lastname
+                                                            );
+                                                        ?>
+
+                                                        <option
+                                                            value="<?php
+                                                                echo (int) $tecnico->staffid;
+                                                            ?>"
+                                                            <?php
+                                                            echo (
+                                                                isset(
+                                                                    $filtros['tecnico']
+                                                                )
+                                                                &&
+                                                                $filtros['tecnico']
+                                                                == $tecnico->staffid
+                                                            )
+                                                                ? 'selected'
+                                                                : '';
+                                                            ?>
+                                                        >
+                                                            <?php
+                                                            echo html_escape(
+                                                                $nome_tecnico
+                                                            );
+                                                            ?>
+                                                        </option>
+
+                                                    <?php endforeach; ?>
+
+                                                </select>
+
+                                            </div>
+
+                                        </div>
+
+
+                                        <!-- STATUS -->
+                                        <div class="col-md-3">
+
+                                            <div class="form-group">
+
+                                                <label>
+                                                    Status
+                                                </label>
+
+                                                <select
+                                                    name="status"
+                                                    class="form-control"
+                                                >
+
+                                                    <option value="">
+                                                        Todos
+                                                    </option>
+
+                                                    <option
+                                                        value="Pendente"
+                                                        <?php
+                                                        echo (
+                                                            isset(
+                                                                $filtros['status']
+                                                            )
+                                                            &&
+                                                            $filtros['status']
+                                                            === 'Pendente'
+                                                        )
+                                                            ? 'selected'
+                                                            : '';
+                                                        ?>
+                                                    >
+                                                        Pendente
+                                                    </option>
+
+                                                    <option
+                                                        value="Em andamento"
+                                                        <?php
+                                                        echo (
+                                                            isset(
+                                                                $filtros['status']
+                                                            )
+                                                            &&
+                                                            $filtros['status']
+                                                            === 'Em andamento'
+                                                        )
+                                                            ? 'selected'
+                                                            : '';
+                                                        ?>
+                                                    >
+                                                        Em andamento
+                                                    </option>
+
+                                                    <option
+                                                        value="Concluída"
+                                                        <?php
+                                                        echo (
+                                                            isset(
+                                                                $filtros['status']
+                                                            )
+                                                            &&
+                                                            $filtros['status']
+                                                            === 'Concluída'
+                                                        )
+                                                            ? 'selected'
+                                                            : '';
+                                                        ?>
+                                                    >
+                                                        Concluída
+                                                    </option>
+
+                                                </select>
+
+                                            </div>
+
+                                        </div>
+
+
+                                        <!-- AVISO -->
+                                        <div class="col-md-3">
+
+                                            <div class="form-group">
+
+                                                <label>
+                                                    Aviso
+                                                </label>
+
+                                                <select
+                                                    name="aviso"
+                                                    class="form-control"
+                                                >
+
+                                                    <option value="">
+                                                        Todos
+                                                    </option>
+
+                                                    <option
+                                                        value="atrasada"
+                                                        <?php
+                                                        echo (
+                                                            isset(
+                                                                $filtros['aviso']
+                                                            )
+                                                            &&
+                                                            $filtros['aviso']
+                                                            === 'atrasada'
+                                                        )
+                                                            ? 'selected'
+                                                            : '';
+                                                        ?>
+                                                    >
+                                                        Atrasada
+                                                    </option>
+
+                                                    <option
+                                                        value="proxima"
+                                                        <?php
+                                                        echo (
+                                                            isset(
+                                                                $filtros['aviso']
+                                                            )
+                                                            &&
+                                                            $filtros['aviso']
+                                                            === 'proxima'
+                                                        )
+                                                            ? 'selected'
+                                                            : '';
+                                                        ?>
+                                                    >
+                                                        Próxima do vencimento
+                                                    </option>
+
+                                                </select>
+
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+
+                                    <div class="row">
+
+
+                                        <!-- VALOR MÍNIMO -->
+                                        <div class="col-md-3">
+
+                                            <div class="form-group">
+
+                                                <label>
+                                                    Valor mínimo
+                                                </label>
+
+                                                <div class="input-group">
+
+                                                    <span class="input-group-addon">
+                                                        R$
+                                                    </span>
+
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        name="valor_min"
+                                                        class="form-control"
+                                                        placeholder="Ex.: 1000"
+                                                        value="<?php
+                                                            echo html_escape(
+                                                                $filtros['valor_min'] ?? ''
+                                                            );
+                                                        ?>"
+                                                    >
+
+                                                </div>
+
+                                            </div>
+
+                                        </div>
+
+
+                                        <!-- VALOR MÁXIMO -->
+                                        <div class="col-md-3">
+
+                                            <div class="form-group">
+
+                                                <label>
+                                                    Valor máximo
+                                                </label>
+
+                                                <div class="input-group">
+
+                                                    <span class="input-group-addon">
+                                                        R$
+                                                    </span>
+
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        name="valor_max"
+                                                        class="form-control"
+                                                        placeholder="Ex.: 5000"
+                                                        value="<?php
+                                                            echo html_escape(
+                                                                $filtros['valor_max'] ?? ''
+                                                            );
+                                                        ?>"
+                                                    >
+
+                                                </div>
+
+                                            </div>
+
+                                        </div>
+
+
+                                        <!-- DATA PREVISTA INICIAL -->
+                                        <div class="col-md-3">
+
+                                            <div class="form-group">
+
+                                                <label>
+                                                    Data prevista — de
+                                                </label>
+
+                                                <input
+                                                    type="date"
+                                                    name="data_prevista_inicio"
+                                                    class="form-control"
+                                                    value="<?php
+                                                        echo html_escape(
+                                                            $filtros['data_prevista_inicio'] ?? ''
+                                                        );
+                                                    ?>"
+                                                >
+
+                                            </div>
+
+                                        </div>
+
+
+                                        <!-- DATA PREVISTA FINAL -->
+                                        <div class="col-md-3">
+
+                                            <div class="form-group">
+
+                                                <label>
+                                                    Data prevista — até
+                                                </label>
+
+                                                <input
+                                                    type="date"
+                                                    name="data_prevista_fim"
+                                                    class="form-control"
+                                                    value="<?php
+                                                        echo html_escape(
+                                                            $filtros['data_prevista_fim'] ?? ''
+                                                        );
+                                                    ?>"
+                                                >
+
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+
+                                    <div class="row">
+
+
+                                        <!-- DATA REALIZADA INICIAL -->
+                                        <div class="col-md-3">
+
+                                            <div class="form-group">
+
+                                                <label>
+                                                    Data realizada — de
+                                                </label>
+
+                                                <input
+                                                    type="date"
+                                                    name="data_realizada_inicio"
+                                                    class="form-control"
+                                                    value="<?php
+                                                        echo html_escape(
+                                                            $filtros['data_realizada_inicio'] ?? ''
+                                                        );
+                                                    ?>"
+                                                >
+
+                                            </div>
+
+                                        </div>
+
+
+                                        <!-- DATA REALIZADA FINAL -->
+                                        <div class="col-md-3">
+
+                                            <div class="form-group">
+
+                                                <label>
+                                                    Data realizada — até
+                                                </label>
+
+                                                <input
+                                                    type="date"
+                                                    name="data_realizada_fim"
+                                                    class="form-control"
+                                                    value="<?php
+                                                        echo html_escape(
+                                                            $filtros['data_realizada_fim'] ?? ''
+                                                        );
+                                                    ?>"
+                                                >
+
+                                            </div>
+
+                                        </div>
+
+
+                                        <!-- BOTÕES -->
+                                        <div class="col-md-6">
+
+                                            <div
+                                                class="form-group"
+                                                style="margin-top: 25px;"
+                                            >
+
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-primary"
+                                                >
+                                                    <i class="fa fa-search"></i>
+                                                    Pesquisar
+                                                </button>
+
+
+                                                <a
+                                                    href="<?php
+                                                        echo admin_url(
+                                                            'ordens_servico'
+                                                        );
+                                                    ?>"
+                                                    class="btn btn-default"
+                                                >
+                                                    <i class="fa fa-refresh"></i>
+                                                    Limpar filtros
+                                                </a>
+
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+                                </form>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- ==========================================
+                             TABELA
+                             ========================================== -->
+
                         <div class="table-responsive">
 
                             <table
@@ -371,7 +891,6 @@
 
 
                                                 <!-- AVISO -->
-                                                <!-- AVISO -->
                                                 <td
                                                     style="
                                                         white-space: normal;
@@ -621,7 +1140,8 @@
                                                 class="text-center"
                                             >
                                                 Nenhuma ordem de serviço
-                                                cadastrada.
+                                                encontrada com os filtros
+                                                selecionados.
                                             </td>
 
                                         </tr>
