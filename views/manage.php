@@ -225,6 +225,28 @@
                                                         Todos
                                                     </option>
 
+
+                                                    <!-- ABERTO -->
+                                                    <option
+                                                        value="Aberto"
+                                                        <?php
+                                                        echo (
+                                                            isset(
+                                                                $filtros['status']
+                                                            )
+                                                            &&
+                                                            $filtros['status']
+                                                            === 'Aberto'
+                                                        )
+                                                            ? 'selected'
+                                                            : '';
+                                                        ?>
+                                                    >
+                                                        Aberto
+                                                    </option>
+
+
+                                                    <!-- PENDENTE -->
                                                     <option
                                                         value="Pendente"
                                                         <?php
@@ -243,6 +265,8 @@
                                                         Pendente
                                                     </option>
 
+
+                                                    <!-- EM ANDAMENTO -->
                                                     <option
                                                         value="Em andamento"
                                                         <?php
@@ -261,6 +285,8 @@
                                                         Em andamento
                                                     </option>
 
+
+                                                    <!-- CONCLUÍDA -->
                                                     <option
                                                         value="Concluída"
                                                         <?php
@@ -650,15 +676,40 @@
 
                                             <?php
 
-                                            $hoje = new DateTime();
+                                            /*
+                                             * =====================================================
+                                             * CÁLCULO DO AVISO
+                                             * =====================================================
+                                             *
+                                             * Só calculamos a diferença de dias se existir
+                                             * uma data prevista.
+                                             *
+                                             * Quando data_prevista for NULL:
+                                             *
+                                             *     $dias = null
+                                             *
+                                             * Assim a OS não será considerada atrasada
+                                             * nem próxima do vencimento.
+                                             */
 
-                                            $prevista = new DateTime(
-                                                $ordem->data_prevista
-                                            );
+                                            $dias = null;
 
-                                            $dias = (int) $hoje
-                                                ->diff($prevista)
-                                                ->format('%r%a');
+                                            if (
+                                                !empty(
+                                                    $ordem->data_prevista
+                                                )
+                                            ) {
+
+                                                $hoje = new DateTime();
+
+                                                $prevista = new DateTime(
+                                                    $ordem->data_prevista
+                                                );
+
+                                                $dias = (int) $hoje
+                                                    ->diff($prevista)
+                                                    ->format('%r%a');
+                                            }
 
                                             ?>
 
@@ -695,11 +746,25 @@
                                                         overflow-wrap: break-word;
                                                     "
                                                 >
-                                                    <?php
-                                                    echo html_escape(
-                                                        $ordem->tecnico
-                                                    );
-                                                    ?>
+
+                                                    <?php if (
+                                                        !empty(
+                                                            $ordem->tecnico
+                                                        )
+                                                    ): ?>
+
+                                                        <?php
+                                                        echo html_escape(
+                                                            $ordem->tecnico
+                                                        );
+                                                        ?>
+
+                                                    <?php else: ?>
+
+                                                        -
+
+                                                    <?php endif; ?>
+
                                                 </td>
 
 
@@ -759,11 +824,13 @@
 
                                                 <!-- STATUS -->
                                                 <td>
+
                                                     <?php
                                                     echo html_escape(
                                                         $ordem->status
                                                     );
                                                     ?>
+
                                                 </td>
 
 
@@ -833,11 +900,13 @@
                                                                     echo (int) $ordem->id;
                                                                 ?>"
                                                             >
+
                                                                 <i
                                                                     class="fa fa-eye"
                                                                 ></i>
 
                                                                 Ver observação
+
                                                             </button>
 
                                                         <?php endif; ?>
@@ -901,11 +970,51 @@
                                                     "
                                                 >
 
-                                                    <?php if (
+                                                    <?php
+
+                                                    /*
+                                                     * Se não existe data prevista,
+                                                     * não existe aviso.
+                                                     */
+
+                                                    if (
+                                                        empty(
+                                                            $ordem->data_prevista
+                                                        )
+                                                    ):
+
+                                                    ?>
+
+                                                        -
+
+                                                    <?php
+
+                                                    /*
+                                                     * Se a OS estiver concluída,
+                                                     * não existe aviso.
+                                                     */
+
+                                                    elseif (
                                                         $ordem->status
-                                                        !== 'Concluída'
-                                                        && $dias < 0
-                                                    ): ?>
+                                                        === 'Concluída'
+                                                    ):
+
+                                                    ?>
+
+                                                        -
+
+                                                    <?php
+
+                                                    /*
+                                                     * Data passada:
+                                                     * OS atrasada.
+                                                     */
+
+                                                    elseif (
+                                                        $dias < 0
+                                                    ):
+
+                                                    ?>
 
                                                         <span
                                                             class="label label-danger"
@@ -918,12 +1027,20 @@
                                                             Atrasada
                                                         </span>
 
-                                                    <?php elseif (
-                                                        $ordem->status
-                                                        !== 'Concluída'
-                                                        && $dias >= 0
-                                                        && $dias <= 3
-                                                    ): ?>
+                                                    <?php
+
+                                                    /*
+                                                     * De hoje até 3 dias:
+                                                     * próxima do vencimento.
+                                                     */
+
+                                                    elseif (
+                                                        $dias >= 0
+                                                        &&
+                                                        $dias <= 3
+                                                    ):
+
+                                                    ?>
 
                                                         <span
                                                             class="label label-warning"
@@ -1060,12 +1177,15 @@
                                                                     data-dismiss="modal"
                                                                     aria-label="Fechar"
                                                                 >
+
                                                                     <span
                                                                         aria-hidden="true"
                                                                     >
                                                                         &times;
                                                                     </span>
+
                                                                 </button>
+
 
                                                                 <h4 class="modal-title">
 
