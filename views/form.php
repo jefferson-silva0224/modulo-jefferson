@@ -15,7 +15,13 @@
                     <div class="panel-body">
 
                         <h4 class="no-margin">
-                            <?php echo $title; ?>
+
+                            <?php
+                            echo isset($ordem)
+                                ? 'Editar Ordem de Serviço'
+                                : 'Nova Ordem de Serviço';
+                            ?>
+
                         </h4>
 
                         <hr>
@@ -23,66 +29,11 @@
 
                         <?php
 
-                        /*
-                         * Verifica se estamos editando.
-                         */
-
-                        $editando =
-                            isset($ordem) &&
-                            !empty($ordem->id);
-
-
-                        /*
-                         * Permissões.
-                         */
-
-                        $pode_empresa =
-                            staff_can(
-                                'manage_schedule',
-                                'ordens_servico'
-                            );
-
-                        $pode_agenda =
-                            staff_can(
-                                'manage_schedule',
-                                'ordens_servico'
-                            );
-
-                        $pode_status =
-                            staff_can(
-                                'manage_status',
-                                'ordens_servico'
-                            );
-
-                        $pode_observacao =
-                            staff_can(
-                                'add_observation',
-                                'ordens_servico'
-                            );
-
-                        $pode_valor =
-                            staff_can(
-                                'view_value',
-                                'ordens_servico'
-                            );
-
-                        ?>
-
-
-                        <?php
-
-                        /*
-                         * Formulário Perfex.
-                         *
-                         * Não remover form_open().
-                         * Ele evita erro 419 Page Expired.
-                         */
-
                         echo form_open(
-                            $editando
+                            isset($ordem)
                                 ? admin_url(
-                                    'ordens_servico/edit/' .
-                                    $ordem->id
+                                    'ordens_servico/edit/'
+                                    . $ordem->id
                                 )
                                 : admin_url(
                                     'ordens_servico/create'
@@ -92,29 +43,35 @@
                         ?>
 
 
-                        <!-- ================================================= -->
-                        <!-- EMPRESA -->
-                        <!-- ================================================= -->
+                        <!-- ==========================================
+                             EMPRESA
+                             ========================================== -->
 
                         <div class="form-group">
 
                             <label for="empresa">
-                                Empresa
+                                Empresa <span class="text-danger">*</span>
                             </label>
 
                             <select
                                 name="empresa"
                                 id="empresa"
                                 class="form-control"
+                                required
                                 <?php
                                 echo (
-                                    $editando &&
-                                    !$pode_empresa
+                                    isset($ordem)
+                                    &&
+                                    !staff_can(
+                                        'edit_company',
+                                        'ordens_servico'
+                                    )
+                                    &&
+                                    !is_admin()
                                 )
                                     ? 'disabled'
                                     : '';
                                 ?>
-                                required
                             >
 
                                 <option value="">
@@ -128,19 +85,17 @@
 
                                     <option
                                         value="<?php
-                                            echo $cliente->userid;
+                                            echo (int) $cliente->userid;
                                         ?>"
                                         <?php
 
                                         if (
-                                            $editando &&
-                                            isset(
-                                                $ordem->empresa
-                                            ) &&
-                                            $ordem->empresa ===
-                                            $cliente->company
+                                            isset($ordem) && (
+                                                (!empty($ordem->empresa_id) && (int) $ordem->empresa_id === (int) $cliente->userid)
+                                                ||
+                                                (empty($ordem->empresa_id) && isset($ordem->empresa) && $ordem->empresa === $cliente->company)
+                                            )
                                         ) {
-
                                             echo 'selected';
                                         }
 
@@ -162,9 +117,9 @@
                         </div>
 
 
-                        <!-- ================================================= -->
-                        <!-- TÉCNICO -->
-                        <!-- ================================================= -->
+                        <!-- ==========================================
+                             TÉCNICO
+                             ========================================== -->
 
                         <div class="form-group">
 
@@ -178,21 +133,19 @@
                                 class="form-control"
                                 <?php
 
-                                /*
-                                 * Na criação:
-                                 * técnico pode ficar vazio.
-                                 *
-                                 * Na edição:
-                                 * quem não possui manage_schedule
-                                 * não pode alterar.
-                                 */
+                                if (
+                                    isset($ordem)
+                                    &&
+                                    !staff_can(
+                                        'manage_schedule',
+                                        'ordens_servico'
+                                    )
+                                    &&
+                                    !is_admin()
+                                ) {
 
-                                echo (
-                                    $editando &&
-                                    !$pode_agenda
-                                )
-                                    ? 'disabled'
-                                    : '';
+                                    echo 'disabled';
+                                }
 
                                 ?>
                             >
@@ -217,53 +170,23 @@
 
                                     ?>
 
+
                                     <option
-                                        value="<?php
-                                            echo $tecnico->staffid;
-                                        ?>"
-                                        <?php
-
-                                        if (
-                                            $editando &&
-                                            isset(
-                                                $ordem->tecnico
-                                            ) &&
-                                            trim(
-                                                $ordem->tecnico
-                                            ) ===
-                                            trim(
-                                                $nome_tecnico
-                                            )
-                                        ) {
-
-                                            echo 'selected';
-                                        }
-
-                                        ?>
-                                    >
-
-                                        <?php
-                                        echo html_escape(
-                                            $nome_tecnico
-                                        );
-                                        ?>
-
-                                        <?php if (
-                                            !empty(
-                                                $tecnico->role_name
-                                            )
-                                        ): ?>
-
-                                            -
-                                            <?php
-                                            echo html_escape(
-                                                $tecnico->role_name
-                                            );
-                                            ?>
-
-                                        <?php endif; ?>
-
-                                    </option>
+    value="<?php echo (int) $tecnico->staffid; ?>"
+    <?php
+    if (
+        isset($ordem) && (
+            (!empty($ordem->tecnico_id) && (int) $ordem->tecnico_id === (int) $tecnico->staffid)
+            ||
+            (empty($ordem->tecnico_id) && isset($ordem->tecnico) && trim($ordem->tecnico) === $nome_tecnico)
+        )
+    ) {
+        echo 'selected';
+    }
+    ?>
+>
+    <?php echo html_escape($nome_tecnico); ?>
+</option>
 
                                 <?php endforeach; ?>
 
@@ -272,9 +195,9 @@
                         </div>
 
 
-                        <!-- ================================================= -->
-                        <!-- DATA PREVISTA -->
-                        <!-- ================================================= -->
+                        <!-- ==========================================
+                             DATA PREVISTA
+                             ========================================== -->
 
                         <div class="form-group">
 
@@ -287,57 +210,50 @@
                                 name="data_prevista"
                                 id="data_prevista"
                                 class="form-control"
-                                value="<?php
-
-                                    echo (
-                                        $editando &&
-                                        !empty(
-                                            $ordem->data_prevista
-                                        )
-                                    )
-                                        ? $ordem->data_prevista
-                                        : '';
-
-                                ?>"
                                 min="<?php
                                     echo date('Y-m-d');
                                 ?>"
+                                value="<?php
+
+                                    if (
+                                        isset($ordem)
+                                        &&
+                                        !empty(
+                                            $ordem->data_prevista
+                                        )
+                                    ) {
+
+                                        echo html_escape(
+                                            $ordem->data_prevista
+                                        );
+                                    }
+
+                                ?>"
                                 <?php
 
-                                /*
-                                 * Na criação:
-                                 * NÃO é obrigatória.
-                                 *
-                                 * Na edição:
-                                 * pode ser preenchida pelo
-                                 * usuário com manage_schedule.
-                                 */
+                                if (
+                                    isset($ordem)
+                                    &&
+                                    !staff_can(
+                                        'manage_schedule',
+                                        'ordens_servico'
+                                    )
+                                    &&
+                                    !is_admin()
+                                ) {
 
-                                echo (
-                                    $editando &&
-                                    !$pode_agenda
-                                )
-                                    ? 'readonly'
-                                    : '';
+                                    echo 'readonly';
+                                }
 
                                 ?>
                             >
 
-                            <?php if (!$editando): ?>
-
-                                <small class="text-muted">
-                                    A data prevista será definida
-                                    posteriormente pelo responsável.
-                                </small>
-
-                            <?php endif; ?>
-
                         </div>
 
 
-                        <!-- ================================================= -->
-                        <!-- DATA REALIZADA -->
-                        <!-- ================================================= -->
+                        <!-- ==========================================
+                             DATA REALIZADA
+                             ========================================== -->
 
                         <div class="form-group">
 
@@ -350,29 +266,33 @@
                                 name="data_realizada"
                                 id="data_realizada"
                                 class="form-control"
+                                max="<?php
+                                    echo date('Y-m-d');
+                                ?>"
                                 value="<?php
 
-                                    echo (
-                                        $editando &&
+                                    if (
+                                        isset($ordem)
+                                        &&
                                         !empty(
                                             $ordem->data_realizada
                                         )
-                                    )
-                                        ? $ordem->data_realizada
-                                        : '';
+                                    ) {
 
-                                ?>"
-                                max="<?php
-                                    echo date('Y-m-d');
+                                        echo html_escape(
+                                            $ordem->data_realizada
+                                        );
+                                    }
+
                                 ?>"
                             >
 
                         </div>
 
 
-                        <!-- ================================================= -->
-                        <!-- STATUS -->
-                        <!-- ================================================= -->
+                        <!-- ==========================================
+                             STATUS
+                             ========================================== -->
 
                         <div class="form-group">
 
@@ -391,17 +311,12 @@
                                     <?php
 
                                     if (
-                                        (
-                                            $editando &&
-                                            isset(
-                                                $ordem->status
-                                            ) &&
-                                            $ordem->status ===
-                                            'Aberto'
-                                        )
+                                        !isset($ordem)
                                         ||
                                         (
-                                            !$editando
+                                            isset($ordem)
+                                            &&
+                                            $ordem->status === 'Aberto'
                                         )
                                     ) {
 
@@ -419,12 +334,9 @@
                                     <?php
 
                                     if (
-                                        $editando &&
-                                        isset(
-                                            $ordem->status
-                                        ) &&
-                                        $ordem->status ===
-                                        'Pendente'
+                                        isset($ordem)
+                                        &&
+                                        $ordem->status === 'Pendente'
                                     ) {
 
                                         echo 'selected';
@@ -437,38 +349,13 @@
 
 
                                 <option
-                                    value="Em andamento"
-                                    <?php
-
-                                    if (
-                                        $editando &&
-                                        isset(
-                                            $ordem->status
-                                        ) &&
-                                        $ordem->status ===
-                                        'Em andamento'
-                                    ) {
-
-                                        echo 'selected';
-                                    }
-
-                                    ?>
-                                >
-                                    Em andamento
-                                </option>
-
-
-                                <option
                                     value="Concluída"
                                     <?php
 
                                     if (
-                                        $editando &&
-                                        isset(
-                                            $ordem->status
-                                        ) &&
-                                        $ordem->status ===
-                                        'Concluída'
+                                        isset($ordem)
+                                        &&
+                                        $ordem->status === 'Concluída'
                                     ) {
 
                                         echo 'selected';
@@ -484,9 +371,9 @@
                         </div>
 
 
-                        <!-- ================================================= -->
-                        <!-- OBSERVAÇÃO -->
-                        <!-- ================================================= -->
+                        <!-- ==========================================
+                             OBSERVAÇÃO
+                             ========================================== -->
 
                         <div class="form-group">
 
@@ -499,40 +386,37 @@
                                 id="observacao"
                                 class="form-control"
                                 rows="5"
-                                <?php
-
-                                echo (
-                                    $editando &&
-                                    !$pode_observacao
-                                )
-                                    ? 'readonly'
-                                    : '';
-
-                                ?>
+                                placeholder="Digite a observação do serviço..."
                             ><?php
 
-                                if (
-                                    $editando &&
-                                    isset(
-                                        $ordem->observacao
-                                    )
-                                ) {
+                            if (
+                                isset($ordem)
+                                &&
+                                !empty(
+                                    $ordem->observacao
+                                )
+                            ) {
 
-                                    echo html_escape(
-                                        $ordem->observacao
-                                    );
-                                }
+                                echo html_escape(
+                                    $ordem->observacao
+                                );
+                            }
 
-                                ?></textarea>
+                            ?></textarea>
 
                         </div>
 
 
-                        <!-- ================================================= -->
-                        <!-- VALOR -->
-                        <!-- ================================================= -->
+                        <!-- ==========================================
+                             VALOR
+                             ========================================== -->
 
-                        <?php if ($pode_valor): ?>
+                        <?php if (
+                            staff_can(
+                                'view_value',
+                                'ordens_servico'
+                            )
+                        ): ?>
 
                             <div class="form-group">
 
@@ -540,36 +424,50 @@
                                     Valor
                                 </label>
 
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    name="valor"
-                                    id="valor"
-                                    class="form-control"
-                                    value="<?php
+                                <div class="input-group">
 
-                                        echo (
-                                            $editando &&
-                                            isset(
+                                    <span class="input-group-addon">
+                                        R$
+                                    </span>
+
+                                    <input
+                                        type="number"
+                                        name="valor"
+                                        id="valor"
+                                        class="form-control"
+                                        step="0.01"
+                                        min="0"
+                                        placeholder="0,00"
+                                        value="<?php
+
+                                            if (
+                                                isset($ordem)
+                                                &&
                                                 $ordem->valor
-                                            ) &&
-                                            $ordem->valor !== null
-                                        )
-                                            ? $ordem->valor
-                                            : '';
+                                                !== null
+                                            ) {
 
-                                    ?>"
-                                >
+                                                echo html_escape(
+                                                    $ordem->valor
+                                                );
+                                            }
+
+                                        ?>"
+                                    >
+
+                                </div>
 
                             </div>
 
                         <?php endif; ?>
 
 
-                        <!-- ================================================= -->
-                        <!-- BOTÕES -->
-                        <!-- ================================================= -->
+                        <hr>
+
+
+                        <!-- ==========================================
+                             BOTÕES
+                             ========================================== -->
 
                         <div class="form-group">
 
@@ -578,12 +476,12 @@
                                 class="btn btn-primary"
                             >
 
-                                <?php
+                                <i class="fa fa-save"></i>
 
-                                echo $editando
+                                <?php
+                                echo isset($ordem)
                                     ? 'Salvar alterações'
                                     : 'Criar Ordem de Serviço';
-
                                 ?>
 
                             </button>
@@ -598,7 +496,9 @@
                                 class="btn btn-default"
                             >
 
-                                Cancelar
+                                <i class="fa fa-arrow-left"></i>
+
+                                Voltar
 
                             </a>
 
@@ -606,7 +506,6 @@
 
 
                         <?php echo form_close(); ?>
-
 
                     </div>
 
@@ -619,9 +518,6 @@
     </div>
 
 </div>
-
-
-<?php init_tail(); ?>
 
 
 <script>
@@ -641,23 +537,17 @@ document.addEventListener(
             );
 
 
-        function atualizarStatus()
-        {
-            if (
-                !dataRealizada ||
-                !status
-            ) {
+        /*
+        |--------------------------------------------------------------------------
+        | DATA REALIZADA = CONCLUÍDA
+        |--------------------------------------------------------------------------
+        */
 
-                return;
-            }
-
-
-            /*
-             * Se existe data realizada,
-             * o status deve ser Concluída.
-             */
+        function verificarStatus() {
 
             if (
+                dataRealizada
+                &&
                 dataRealizada.value !== ''
             ) {
 
@@ -671,27 +561,28 @@ document.addEventListener(
 
                 status.disabled =
                     false;
+
             }
+
         }
-
-
-        atualizarStatus();
 
 
         if (dataRealizada) {
 
             dataRealizada.addEventListener(
                 'change',
-                atualizarStatus
+                verificarStatus
             );
 
-            dataRealizada.addEventListener(
-                'input',
-                atualizarStatus
-            );
         }
+
+
+        verificarStatus();
 
     }
 );
 
 </script>
+
+
+<?php init_tail(); ?>

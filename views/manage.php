@@ -733,7 +733,9 @@
                                                 >
                                                     <?php
                                                     echo html_escape(
-                                                        $ordem->empresa
+                                                        isset($ordem->empresa_exibicao)
+                                                            ? $ordem->empresa_exibicao
+                                                            : $ordem->empresa
                                                     );
                                                     ?>
                                                 </td>
@@ -749,13 +751,17 @@
 
                                                     <?php if (
                                                         !empty(
-                                                            $ordem->tecnico
+                                                            isset($ordem->tecnico_exibicao)
+                                                                ? $ordem->tecnico_exibicao
+                                                                : $ordem->tecnico
                                                         )
                                                     ): ?>
 
                                                         <?php
                                                         echo html_escape(
-                                                            $ordem->tecnico
+                                                            isset($ordem->tecnico_exibicao)
+                                                                ? $ordem->tecnico_exibicao
+                                                                : $ordem->tecnico
                                                         );
                                                         ?>
 

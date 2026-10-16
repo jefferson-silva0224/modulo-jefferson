@@ -97,17 +97,16 @@ class Ordens_servico extends AdminController
             return true;
         }
 
+        $staffid = (int) get_staff_user_id();
         $nome_tecnico = $this->nome_tecnico_logado();
 
-        if (
-            empty($ordem->tecnico)
-            ||
-            trim($ordem->tecnico) !== trim($nome_tecnico)
-        ) {
-            return false;
+        // Registros novos usam o ID; registros antigos continuam funcionando pelo nome.
+        if (isset($ordem->tecnico_id) && !empty($ordem->tecnico_id)) {
+            return (int) $ordem->tecnico_id === $staffid;
         }
 
-        return true;
+        return !empty($ordem->tecnico)
+            && trim($ordem->tecnico) === trim($nome_tecnico);
     }
 
 
@@ -249,11 +248,15 @@ class Ordens_servico extends AdminController
         */
 
         if ($usuario_e_tecnico) {
+            $staffid_logado = (int) get_staff_user_id();
 
-            $this->db->where(
-                'tecnico',
-                $nome_tecnico_logado
-            );
+            $this->db->group_start();
+            $this->db->where('tecnico_id', $staffid_logado);
+            $this->db->or_group_start();
+            $this->db->where('tecnico_id IS NULL', null, false);
+            $this->db->where('tecnico', $nome_tecnico_logado);
+            $this->db->group_end();
+            $this->db->group_end();
         }
 
 
@@ -264,25 +267,26 @@ class Ordens_servico extends AdminController
         */
 
         if (!empty($filtros['empresa'])) {
+            $empresa_nome_filtro = null;
 
-            $empresa = $this->db
-                ->select('company')
-                ->where(
-                    'userid',
-                    $filtros['empresa']
-                )
-                ->get(db_prefix() . 'clients')
-                ->row();
-
-            $this->db->reset_query();
-
-            if ($empresa) {
-
-                $this->db->where(
-                    'empresa',
-                    $empresa->company
-                );
+            foreach ($clientes as $cliente_item) {
+                if ((int) $cliente_item->userid === (int) $filtros['empresa']) {
+                    $empresa_nome_filtro = $cliente_item->company;
+                    break;
+                }
             }
+
+            $this->db->group_start();
+            $this->db->where('empresa_id', (int) $filtros['empresa']);
+
+            // Compatibilidade com ordens antigas que ainda não têm ID.
+            if ($empresa_nome_filtro !== null) {
+                $this->db->or_group_start();
+                $this->db->where('empresa_id IS NULL', null, false);
+                $this->db->where('empresa', $empresa_nome_filtro);
+                $this->db->group_end();
+            }
+            $this->db->group_end();
         }
 
 
@@ -292,36 +296,27 @@ class Ordens_servico extends AdminController
         |--------------------------------------------------------------------------
         */
 
-        if (
-            !empty($filtros['tecnico'])
-            &&
-            !$usuario_e_tecnico
-        ) {
+        if (!empty($filtros['tecnico']) && !$usuario_e_tecnico) {
+            $tecnico_nome_filtro = null;
 
-            $tecnico = $this->db
-                ->select('firstname, lastname')
-                ->where(
-                    'staffid',
-                    $filtros['tecnico']
-                )
-                ->get(db_prefix() . 'staff')
-                ->row();
-
-            $this->db->reset_query();
-
-            if ($tecnico) {
-
-                $nome_tecnico_filtro = trim(
-                    $tecnico->firstname .
-                    ' ' .
-                    $tecnico->lastname
-                );
-
-                $this->db->where(
-                    'tecnico',
-                    $nome_tecnico_filtro
-                );
+            foreach ($tecnicos as $tecnico_item) {
+                if ((int) $tecnico_item->staffid === (int) $filtros['tecnico']) {
+                    $tecnico_nome_filtro = trim($tecnico_item->firstname . ' ' . $tecnico_item->lastname);
+                    break;
+                }
             }
+
+            $this->db->group_start();
+            $this->db->where('tecnico_id', (int) $filtros['tecnico']);
+
+            // Compatibilidade com ordens antigas que ainda não têm ID.
+            if ($tecnico_nome_filtro !== null) {
+                $this->db->or_group_start();
+                $this->db->where('tecnico_id IS NULL', null, false);
+                $this->db->where('tecnico', $tecnico_nome_filtro);
+                $this->db->group_end();
+            }
+            $this->db->group_end();
         }
 
 
@@ -533,6 +528,32 @@ class Ordens_servico extends AdminController
         $ordens = $this->db
             ->get()
             ->result();
+
+        // Mapas de nomes atuais: alterações no cadastro aparecem também nas OS antigas.
+        $nomes_empresas = [];
+        foreach ($clientes as $cliente_item) {
+            $nomes_empresas[(int) $cliente_item->userid] = $cliente_item->company;
+        }
+
+        $nomes_tecnicos = [];
+        foreach ($tecnicos as $tecnico_item) {
+            $nomes_tecnicos[(int) $tecnico_item->staffid] = trim(
+                $tecnico_item->firstname . ' ' . $tecnico_item->lastname
+            );
+        }
+
+        foreach ($ordens as $ordem_item) {
+            $empresa_id_item = isset($ordem_item->empresa_id) ? (int) $ordem_item->empresa_id : 0;
+            $tecnico_id_item = isset($ordem_item->tecnico_id) ? (int) $ordem_item->tecnico_id : 0;
+
+            $ordem_item->empresa_exibicao = (
+                $empresa_id_item && isset($nomes_empresas[$empresa_id_item])
+            ) ? $nomes_empresas[$empresa_id_item] : $ordem_item->empresa;
+
+            $ordem_item->tecnico_exibicao = (
+                $tecnico_id_item && isset($nomes_tecnicos[$tecnico_id_item])
+            ) ? $nomes_tecnicos[$tecnico_id_item] : $ordem_item->tecnico;
+        }
 
 
         /*
@@ -847,29 +868,16 @@ class Ordens_servico extends AdminController
             */
 
             $dados = [
-                'empresa' =>
-                    $cliente->company,
-
-                'tecnico' =>
-                    $nome_tecnico,
-
-                'data_prevista' =>
-                    $data_prevista,
-
-                'data_realizada' =>
-                    $data_realizada,
-
-                'status' =>
-                    $status,
-
-                'observacao' =>
-                    $observacao,
-
-                'valor' =>
-                    $valor,
-
-                'datecreated' =>
-                    date('Y-m-d H:i:s'),
+                'empresa_id'     => (int) $cliente->userid,
+                'tecnico_id'     => !empty($post['tecnico']) ? (int) $post['tecnico'] : null,
+                'empresa'        => $cliente->company,
+                'tecnico'        => $nome_tecnico,
+                'data_prevista'  => $data_prevista,
+                'data_realizada' => $data_realizada,
+                'status'         => $status,
+                'observacao'     => $observacao,
+                'valor'          => $valor,
+                'datecreated'    => date('Y-m-d H:i:s'),
             ];
 
 
@@ -1048,8 +1056,8 @@ class Ordens_servico extends AdminController
             |--------------------------------------------------------------------------
             */
 
-            $empresa_atual =
-                $ordem->empresa;
+            $empresa_atual = $ordem->empresa;
+            $empresa_id_atual = !empty($ordem->empresa_id) ? (int) $ordem->empresa_id : null;
 
 
             if (
@@ -1091,8 +1099,8 @@ class Ordens_servico extends AdminController
                 }
 
 
-                $empresa_atual =
-                    $cliente->company;
+                $empresa_atual = $cliente->company;
+                $empresa_id_atual = (int) $cliente->userid;
             }
 
 
@@ -1102,8 +1110,8 @@ class Ordens_servico extends AdminController
             |--------------------------------------------------------------------------
             */
 
-            $nome_tecnico_atual =
-                $ordem->tecnico;
+            $nome_tecnico_atual = $ordem->tecnico;
+            $tecnico_id_atual = !empty($ordem->tecnico_id) ? (int) $ordem->tecnico_id : null;
 
 
             if (
@@ -1157,17 +1165,14 @@ class Ordens_servico extends AdminController
                     }
 
 
-                    $nome_tecnico_atual =
-                        trim(
-                            $tecnico->firstname .
-                            ' ' .
-                            $tecnico->lastname
-                        );
+                    $nome_tecnico_atual = trim(
+                        $tecnico->firstname . ' ' . $tecnico->lastname
+                    );
+                    $tecnico_id_atual = (int) $post['tecnico'];
 
                 } else {
-
-                    $nome_tecnico_atual =
-                        null;
+                    $nome_tecnico_atual = null;
+                    $tecnico_id_atual = null;
                 }
             }
 
@@ -1358,26 +1363,15 @@ class Ordens_servico extends AdminController
             */
 
             $dados = [
-                'empresa' =>
-                    $empresa_atual,
-
-                'tecnico' =>
-                    $nome_tecnico_atual,
-
-                'data_prevista' =>
-                    $data_prevista,
-
-                'data_realizada' =>
-                    $data_realizada,
-
-                'status' =>
-                    $status,
-
-                'observacao' =>
-                    $observacao,
-
-                'valor' =>
-                    $valor,
+                'empresa_id'     => $empresa_id_atual,
+                'tecnico_id'     => $tecnico_id_atual,
+                'empresa'        => $empresa_atual,
+                'tecnico'        => $nome_tecnico_atual,
+                'data_prevista'  => $data_prevista,
+                'data_realizada' => $data_realizada,
+                'status'         => $status,
+                'observacao'     => $observacao,
+                'valor'          => $valor,
             ];
 
 
