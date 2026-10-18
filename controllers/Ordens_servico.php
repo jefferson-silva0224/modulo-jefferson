@@ -331,7 +331,8 @@ class Ordens_servico extends AdminController
             $status_permitidos = [
                 'Aberto',
                 'Pendente',
-                'Concluída'
+                'Concluída',
+                'Cancelado'
             ];
 
             if (
@@ -341,10 +342,17 @@ class Ordens_servico extends AdminController
                     true
                 )
             ) {
+                // A migração preservou alguns status em minúsculas.
+                $variantes_status = [
+                    'Aberto' => ['Aberto', 'aberto'],
+                    'Pendente' => ['Pendente', 'pendente'],
+                    'Concluída' => ['Concluída', 'concluída', 'Concluida', 'concluida', 'Concluído', 'concluído', 'Concluido', 'concluido'],
+                    'Cancelado' => ['Cancelado', 'cancelado'],
+                ];
 
-                $this->db->where(
+                $this->db->where_in(
                     'status',
-                    $filtros['status']
+                    $variantes_status[$filtros['status']]
                 );
             }
         }
@@ -462,7 +470,7 @@ class Ordens_servico extends AdminController
 
             $limite_proximo = date(
                 'Y-m-d',
-                strtotime('+3 days')
+                strtotime('+5 days')
             );
 
 
@@ -481,9 +489,9 @@ class Ordens_servico extends AdminController
                     false
                 );
 
-                $this->db->where(
-                    'status !=',
-                    'Concluída'
+                $this->db->where_not_in(
+                    'status',
+                    ['Concluída', 'concluída', 'Concluida', 'concluida', 'Concluído', 'concluído', 'Concluido', 'concluido', 'Cancelado', 'cancelado']
                 );
 
             } elseif (
@@ -506,9 +514,28 @@ class Ordens_servico extends AdminController
                     false
                 );
 
+                $this->db->where_not_in(
+                    'status',
+                    ['Concluída', 'concluída', 'Concluida', 'concluida', 'Concluído', 'concluído', 'Concluido', 'concluido', 'Cancelado', 'cancelado']
+                );
+            } elseif (
+                $filtros['aviso'] === 'dentro_prazo'
+            ) {
+                // OS ativas com vencimento além da janela de alerta de 5 dias.
                 $this->db->where(
-                    'status !=',
-                    'Concluída'
+                    'data_prevista >',
+                    $limite_proximo
+                );
+
+                $this->db->where(
+                    'data_realizada IS NULL',
+                    null,
+                    false
+                );
+
+                $this->db->where_not_in(
+                    'status',
+                    ['Concluída', 'concluída', 'Concluida', 'concluida', 'Concluído', 'concluído', 'Concluido', 'concluido', 'Cancelado', 'cancelado']
                 );
             }
         }
@@ -796,22 +823,30 @@ class Ordens_servico extends AdminController
             |--------------------------------------------------------------------------
             */
 
-            if (!empty($data_realizada)) {
+            $status_solicitado = isset($post['status'])
+    ? trim($post['status'])
+    : '';
 
-                $status = 'Concluída';
+if ($status_solicitado === 'Cancelado') {
 
-            } elseif (
-                empty($nome_tecnico)
-                ||
-                empty($data_prevista)
-            ) {
+    $status = 'Cancelado';
 
-                $status = 'Aberto';
+} elseif (!empty($data_realizada)) {
 
-            } else {
+    $status = 'Concluída';
 
-                $status = 'Pendente';
-            }
+} elseif (
+    empty($nome_tecnico)
+    ||
+    empty($data_prevista)
+) {
+
+    $status = 'Aberto';
+
+} else {
+
+    $status = 'Pendente';
+}
 
 
             /*
@@ -1002,7 +1037,11 @@ class Ordens_servico extends AdminController
         */
 
         if (
-            $ordem->status === 'Concluída'
+            in_array(
+                mb_strtolower(trim((string) $ordem->status), 'UTF-8'),
+                ['concluída', 'concluida', 'concluído', 'concluido'],
+                true
+            )
             &&
             !is_admin()
         ) {
@@ -1205,7 +1244,11 @@ class Ordens_servico extends AdminController
                 if (
                     $data_prevista < $hoje
                     &&
-                    $ordem->status !== 'Concluída'
+                    !in_array(
+                        mb_strtolower(trim((string) $ordem->status), 'UTF-8'),
+                        ['concluída', 'concluida', 'concluído', 'concluido'],
+                        true
+                    )
                 ) {
 
                     set_alert(
@@ -1273,22 +1316,38 @@ class Ordens_servico extends AdminController
             |--------------------------------------------------------------------------
             */
 
-            if (!empty($data_realizada)) {
+            $status_solicitado = isset($post['status'])
+    ? trim($post['status'])
+    : '';
 
-                $status = 'Concluída';
+if (
+    $status_solicitado === 'Cancelado'
+    ||
+    (
+        $status_solicitado === ''
+        &&
+        $ordem->status === 'Cancelado'
+    )
+) {
 
-            } elseif (
-                empty($nome_tecnico_atual)
-                ||
-                empty($data_prevista)
-            ) {
+    $status = 'Cancelado';
 
-                $status = 'Aberto';
+} elseif (!empty($data_realizada)) {
 
-            } else {
+    $status = 'Concluída';
 
-                $status = 'Pendente';
-            }
+} elseif (
+    empty($nome_tecnico_atual)
+    ||
+    empty($data_prevista)
+) {
+
+    $status = 'Aberto';
+
+} else {
+
+    $status = 'Pendente';
+}
 
 
             /*
@@ -1516,7 +1575,11 @@ class Ordens_servico extends AdminController
         */
 
         if (
-            $ordem->status === 'Concluída'
+            in_array(
+                mb_strtolower(trim((string) $ordem->status), 'UTF-8'),
+                ['concluída', 'concluida', 'concluído', 'concluido'],
+                true
+            )
             &&
             !is_admin()
         ) {

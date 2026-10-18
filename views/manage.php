@@ -266,26 +266,6 @@
                                                     </option>
 
 
-                                                    <!-- EM ANDAMENTO -->
-                                                    <option
-                                                        value="Em andamento"
-                                                        <?php
-                                                        echo (
-                                                            isset(
-                                                                $filtros['status']
-                                                            )
-                                                            &&
-                                                            $filtros['status']
-                                                            === 'Em andamento'
-                                                        )
-                                                            ? 'selected'
-                                                            : '';
-                                                        ?>
-                                                    >
-                                                        Em andamento
-                                                    </option>
-
-
                                                     <!-- CONCLUÍDA -->
                                                     <option
                                                         value="Concluída"
@@ -303,6 +283,22 @@
                                                         ?>
                                                     >
                                                         Concluída
+                                                    </option>
+
+                                                    <!-- CANCELADO -->
+                                                    <option
+                                                        value="Cancelado"
+                                                        <?php
+                                                        echo (
+                                                            isset($filtros['status'])
+                                                            &&
+                                                            $filtros['status'] === 'Cancelado'
+                                                        )
+                                                            ? 'selected'
+                                                            : '';
+                                                        ?>
+                                                    >
+                                                        Cancelado
                                                     </option>
 
                                                 </select>
@@ -364,6 +360,19 @@
                                                         ?>
                                                     >
                                                         Próxima do vencimento
+                                                    </option>
+
+                                                    <option
+                                                        value="dentro_prazo"
+                                                        <?php
+                                                        echo (
+                                                            isset($filtros['aviso'])
+                                                            &&
+                                                            $filtros['aviso'] === 'dentro_prazo'
+                                                        ) ? 'selected' : '';
+                                                        ?>
+                                                    >
+                                                        Dentro do prazo
                                                     </option>
 
                                                 </select>
@@ -692,6 +701,22 @@
                                              * nem próxima do vencimento.
                                              */
 
+                                            // Normaliza status antigos importados em minúsculas.
+                                            $status_normalizado = mb_strtolower(
+                                                trim((string) $ordem->status),
+                                                'UTF-8'
+                                            );
+
+                                            $status_concluido = in_array(
+                                                $status_normalizado,
+                                                ['concluída', 'concluida', 'concluído', 'concluido'],
+                                                true
+                                            );
+
+                                            $status_cancelado = (
+                                                $status_normalizado === 'cancelado'
+                                            );
+
                                             $dias = null;
 
                                             if (
@@ -700,7 +725,7 @@
                                                 )
                                             ) {
 
-                                                $hoje = new DateTime();
+                                                $hoje = new DateTime('today');
 
                                                 $prevista = new DateTime(
                                                     $ordem->data_prevista
@@ -832,8 +857,19 @@
                                                 <td>
 
                                                     <?php
+                                                    $status_exibicao = [
+                                                        'aberto' => 'Aberto',
+                                                        'pendente' => 'Pendente',
+                                                        'em andamento' => 'Em andamento',
+                                                        'concluída' => 'Concluída',
+                                                        'concluida' => 'Concluída',
+                                                        'concluído' => 'Concluída',
+                                                        'concluido' => 'Concluída',
+                                                        'cancelado' => 'Cancelado',
+                                                    ];
                                                     echo html_escape(
-                                                        $ordem->status
+                                                        $status_exibicao[mb_strtolower(trim((string) $ordem->status), 'UTF-8')]
+                                                        ?? $ordem->status
                                                     );
                                                     ?>
 
@@ -1001,9 +1037,8 @@
                                                      */
 
                                                     elseif (
-                                                        $ordem->status
-                                                        === 'Concluída'
-                                                    ):
+                                                        ($status_concluido || $status_cancelado)
+                                                    ): 
 
                                                     ?>
 
@@ -1036,14 +1071,14 @@
                                                     <?php
 
                                                     /*
-                                                     * De hoje até 3 dias:
+                                                     * De hoje até 5 dias:
                                                      * próxima do vencimento.
                                                      */
 
                                                     elseif (
                                                         $dias >= 0
                                                         &&
-                                                        $dias <= 3
+                                                        $dias <= 5
                                                     ):
 
                                                     ?>
@@ -1081,8 +1116,7 @@
                                                         )
                                                         &&
                                                         (
-                                                            $ordem->status
-                                                            !== 'Concluída'
+                                                            !$status_concluido
                                                             ||
                                                             is_admin()
                                                         )

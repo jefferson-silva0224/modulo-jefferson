@@ -366,6 +366,24 @@
                                     Concluída
                                 </option>
 
+                                <option
+                                    value="Cancelado"
+                                    <?php
+
+                                    if (
+                                        isset($ordem)
+                                        &&
+                                        $ordem->status === 'Cancelado'
+                                    ) {
+
+                                        echo 'selected';
+                                    }
+
+                                    ?>
+                                >
+                                    Cancelado
+                                </option>
+
                             </select>
 
                         </div>
