@@ -1677,3 +1677,728 @@ Dessa forma, a consulta principal começa limpa e os filtros são adicionados co
 Com essa alteração, a tela de Ordens de Serviço passou a permitir pesquisas mais específicas sem alterar os registros existentes.
 
 A funcionalidade também facilita a utilização do sistema quando houver uma quantidade maior de Ordens de Serviço cadastradas, pois o usuário não precisa procurar manualmente em toda a lista.
+
+
+ ## Migração dos dados de 2026
+8.1 Objetivo e escopo
+
+A migração teve como origem a planilha CONTROLE_OS_2026.xlsx.
+
+O escopo foi definido para importar somente a aba 2026, sem importar dados da aba 2025.
+
+O volume de referência do processo foi de 1.806 ordens de serviço. O usuário confirmou que a migração foi concluída com sucesso.
+
+A migração não deve ser executada novamente apenas para corrigir avisos, filtros ou regras de apresentação.
+
+8.2 Regras de mapeamento
+Empresas
+
+Os nomes das empresas na planilha foram relacionados aos clientes cadastrados no Perfex. O objetivo foi gravar o identificador correto da empresa em vez de criar cadastros duplicados.
+
+Quando for necessário auditar um registro, confira se o empresa_id da OS corresponde ao cliente esperado.
+
+Técnicos
+
+As variações reconhecidas de José Carlos Ribeiro — incluindo formas como “Zé” e “J. Carlos” — foram mapeadas para:
+
+tecnico_id = 8
+
+Esse mapeamento foi uma regra específica da migração. Antes de reutilizá-lo em outro conjunto de dados, confirme que o funcionário de ID 8 continua sendo a pessoa correta.
+
+Os valores “a definir” e as células de técnico em branco foram tratados como:
+
+tecnico_id = NULL
+
+Não foi inventado um técnico para preencher os campos ausentes.
+
+Datas
+
+As datas foram normalizadas para o formato aceito pelo banco:
+
+YYYY-MM-DD
+
+Por exemplo, uma data exibida como 18/10/2026 na planilha deve ser armazenada como 2026-10-18.
+
+Essa conversão deve respeitar o significado original da data e não deve inventar valores para células vazias.
+
+Status
+
+Os valores da planilha foram normalizados para os estados correspondentes do módulo.
+
+As regras documentadas incluem:
+
+realizada, realizado, feito e ok: equivalentes a concluído;
+
+agendada, remarcada e pendente: equivalentes a pendente;
+
+cancelada e cancelado: equivalentes a cancelado;
+
+status vazio: aberto.
+
+A implementação real e os valores efetivamente gravados devem ser conferidos no banco quando uma auditoria exigir precisão registro a registro.
+
+8.3 Conversão dos valores financeiros
+
+A coluna de valor apresentava tanto números nativos quanto números armazenados como texto.
+
+O usuário confirmou a conversão de 377 valores claramente monetários, preservando os valores originais para conferência e separando os casos duvidosos e os quatro valores negativos para revisão.
+
+Os textos não monetários, como:
+
+a combinar;
+
+ver c/ Sandra;
+
+s/ valor;
+
+não deveriam ser convertidos em números inventados. O tratamento adotado foi manter o valor numérico como NULL e preservar a informação textual na observação para conferência.
+
+Os quatro valores negativos foram sinalizados para revisão, não descartados automaticamente. Um valor negativo pode representar uma correção, um estorno ou um erro de origem; é necessário validar o contexto antes de decidir.
+
+8.4 Reconciliação dos totais
+
+Durante a preparação, os totais de referência foram:
+
+Descrição
+
+	
+
+Total
+
+
+
+
+Soma das células originalmente numéricas
+
+	
+
+R$ 587.615,57
+
+
+
+
+Soma adicional dos 377 valores textuais convertidos
+
+	
+
+R$ 237.289,82
+
+
+
+
+Total normalizado de referência
+
+	
+
+R$ 824.905,39
+
+A diferença ocorre porque os valores armazenados como texto não eram considerados na soma original das células numéricas.
+
+Esses números são referências de auditoria do processo de preparação. Se for necessária uma reconciliação financeira formal, o próximo desenvolvedor deve comparar os dados originais, o relatório de validação e os valores efetivamente gravados no banco.
+
+8.5 Duplicidades
+
+Foram identificados sete pares de linhas que ficaram idênticas após a normalização. Esses registros foram mantidos, em vez de serem removidos automaticamente.
+
+Essa foi uma decisão deliberada: duas linhas iguais não provam, por si só, que uma delas seja indevida. Elas podem representar ocorrências legítimas.
+
+Não elimine esses registros sem validar o conteúdo original e o significado operacional de cada OS.
+
+8.6 Arquivos de apoio da migração
+
+Durante a preparação foram identificados os seguintes arquivos:
+
+CONTROLE_OS_2026.xlsx — planilha de origem;
+
+INSTRUCOES_importacao_OS_2026.txt — instruções e regras da importação;
+
+importacao_ordens_servico_2026.sql — nome de referência para o script SQL de importação;
+
+relatorio_validacao_importacao_os_2026.xlsx — relatório de conferência;
+
+conferencia_ordens_servico_2026.csv — dados normalizados para conferência;
+
+revisoes_importacao_os_2026.csv — casos que exigiam atenção.
+
+A existência e a localização desses arquivos devem ser verificadas na pasta de trabalho ou na biblioteca do projeto. Eles não precisam estar instalados no servidor para o módulo funcionar.
+
+8.7 Risco de reexecutar a importação
+
+O script de importação foi descrito como um script de inserção que não apagava nem atualizava as OS existentes.
+
+Isso significa que executar o mesmo script novamente pode inserir registros duplicados.
+
+Regra obrigatória de manutenção: não reexecute a importação de 2026 para resolver problemas de código ou de interface.
+
+Se houver uma suspeita de erro nos dados, primeiro faça uma auditoria por consulta SELECT, compare os registros com a planilha original e defina uma correção específica. Qualquer atualização ou exclusão em massa deve ser precedida de backup e revisão.
+
+9. Histórico dos problemas e correções
+
+Esta seção registra os principais problemas encontrados durante o desenvolvimento e a razão das soluções adotadas.
+
+9.1 Inclusão do status Cancelado
+
+Problema: o conjunto de status disponível não contemplava adequadamente o cancelamento de uma OS.
+
+Solução: o status Cancelado foi incluído no módulo e confirmado como funcional pelo usuário.
+
+Regra resultante: uma OS cancelada não deve ser classificada como atrasada nem como próxima do vencimento.
+
+Pontos a revisar se o módulo mudar:
+
+opções de status do formulário;
+
+validação de status no controller;
+
+gravação na criação e na edição;
+
+apresentação na listagem;
+
+filtros;
+
+regras de aviso;
+
+restrições de edição e exclusão.
+
+9.2 OS concluída aparecendo como atrasada
+
+Sintoma: algumas OS concluídas exibiam o aviso Atrasada.
+
+Causa: as comparações de status não reconheciam todas as variantes de capitalização e acentuação utilizadas nos dados importados.
+
+Solução: foram ajustadas verificações para reconhecer variantes de concluído e cancelado.
+
+Lição técnica: o banco pode conter valores historicamente válidos, mas escritos em formatos diferentes. A regra de negócio não deve depender de uma única grafia literal sem normalização.
+
+9.3 Filtro Dentro do prazo retornando OS próxima do vencimento
+
+Sintoma: o filtro de OS dentro do prazo retornava registros que apareciam com o aviso Próxima do vencimento.
+
+Causa: os critérios do filtro e da classificação visual não estavam completamente alinhados.
+
+Solução definida: padronizar o prazo de proximidade em cinco dias e fazer o controller e a view utilizarem as mesmas fronteiras temporais.
+
+Critério esperado:
+
+hoje até hoje + 5 dias: próxima do vencimento;
+
+depois de hoje + 5 dias: dentro do prazo;
+
+antes de hoje: atrasada.
+
+OS concluídas, canceladas, realizadas ou sem data prevista devem ser excluídas dos filtros de risco, conforme as regras desta documentação.
+
+9.4 Status Em andamento permanecendo no filtro
+
+Sintoma: a opção ainda aparecia no filtro de status depois de ter sido removida de outro local.
+
+Solução: remover a opção do seletor da listagem.
+
+Cuidados: se houver registros antigos com esse valor, a compatibilidade de exibição pode ser mantida separadamente. Não reintroduza o status no formulário sem uma decisão de negócio.
+
+9.5 Nomes de técnicos e empresas não se atualizando nas OS antigas
+
+Problema: nomes gravados somente como texto podem ficar desatualizados depois de uma alteração no cadastro mestre.
+
+Solução: usar empresa_id e tecnico_id para relacionar a OS aos registros do Perfex.
+
+Resultado esperado: quando o nome for exibido a partir do relacionamento pelo ID, a OS passa a refletir o nome atual cadastrado no Perfex.
+
+9.6 Erros de estrutura do banco
+
+Foram encontrados erros relacionados a tentativa de criar novamente uma coluna existente e a incompatibilidade de collation entre textos.
+
+Esses problemas reforçam duas regras:
+
+conferir a estrutura real do banco antes de executar alterações;
+
+verificar a compatibilidade de collations ao fazer comparações entre colunas textuais.
+
+Não se deve tentar resolver um erro de banco alterando todas as colunas ou todos os registros sem identificar primeiro a origem exata.
+
+10. Procedimento seguro para futuras alterações
+
+Esta seção é especialmente importante para o desenvolvedor que assumir o projeto.
+
+10.1 Antes de modificar o código
+
+Acesse o módulo instalado no ambiente correto.
+
+Confira quais versões dos arquivos estão efetivamente em produção.
+
+Leia o controller e as views antes de alterar a lógica.
+
+Faça uma cópia de segurança dos arquivos que serão modificados.
+
+Se a alteração envolver o banco, faça backup do banco.
+
+Identifique todas as partes que dependem da regra que será alterada.
+
+Registre a mudança e os testes necessários.
+
+Não se deve presumir que um arquivo baixado anteriormente seja idêntico ao que está instalado no servidor.
+
+10.2 Se for alterar os avisos de vencimento
+
+Uma alteração na quantidade de dias deve ser aplicada em conjunto na view e no controller.
+
+Por exemplo, se a empresa decidir futuramente adotar sete dias em vez de cinco, será necessário revisar:
+
+a lógica que exibe Atrasada;
+
+a lógica que exibe Próxima do vencimento;
+
+a condição do filtro atrasada;
+
+a condição do filtro proxima;
+
+a condição do filtro dentro_prazo;
+
+a exclusão de OS concluídas, canceladas e realizadas;
+
+o tratamento de datas vazias.
+
+Depois, teste pelo menos as datas de hoje, hoje + 5 dias, hoje + 6 dias e a nova fronteira.
+
+Não altere somente o texto de um aviso ou somente o valor usado em uma consulta SQL. Isso pode fazer a interface e os filtros discordarem novamente.
+
+10.3 Se for adicionar um novo status
+
+A inclusão de um status não se limita a acrescentar uma opção ao formulário. O desenvolvedor precisa revisar:
+
+lista de status disponíveis;
+
+validação no controller;
+
+criação e edição;
+
+transições automáticas;
+
+exibição na tabela;
+
+filtros de status;
+
+filtros e avisos de vencimento;
+
+permissões de edição e exclusão;
+
+compatibilidade com registros já existentes;
+
+documentação.
+
+Também deve decidir se o novo status é operacional ou terminal. Um status terminal, como Concluída ou Cancelado, não deve receber alertas de atraso conforme as regras atuais.
+
+10.4 Se for alterar as permissões
+
+Revise a definição da permissão no arquivo principal e todas as verificações no controller e na interface.
+
+O teste deve incluir tanto o uso normal da tela quanto uma tentativa de acesso direto à URL da ação. O objetivo é garantir que um usuário sem permissão não consiga realizar uma operação por fora da interface.
+
+10.5 Se for alterar o banco de dados
+
+Utilize db_prefix() nas consultas PHP.
+
+Inspecione as colunas e os índices existentes.
+
+Evite scripts que falhem ou causem duplicidade quando executados duas vezes.
+
+Não remova campos legados sem verificar suas dependências.
+
+Não execute novamente o script histórico de importação.
+
+Para correções em massa, faça primeiro um SELECT que mostre exatamente os registros afetados.
+
+Guarde o SQL utilizado e o resultado da validação.
+
+Sempre que uma alteração puder afetar os registros existentes, a primeira opção deve ser testar em homologação, não diretamente em produção.
+
+11. Roteiro de diagnóstico
+Problema: erro 500 ao abrir Ordens de Serviço
+
+Verifique:
+
+se o arquivo foi copiado integralmente;
+
+se o controller está no diretório correto;
+
+se o nome do arquivo e o nome da classe correspondem à convenção do módulo;
+
+se houve mistura de arquivos de versões diferentes;
+
+se há erro de sintaxe PHP;
+
+se o log do Perfex/PHP mostra uma exceção ou erro SQL.
+
+A validação de sintaxe pode ser feita com:
+
+php -l caminho/para/manage.php
+php -l caminho/para/Ordens_servico.php
+
+O resultado esperado é No syntax errors detected.
+
+Esse teste não garante que a consulta SQL funcionará nem que a tela se comportará corretamente.
+
+Problema: OS concluída aparece como atrasada
+
+Verifique:
+
+o valor exato do status armazenado;
+
+se a data realizada está preenchida;
+
+se a view reconhece as variantes de concluído;
+
+se o controller exclui status concluídos/cancelados dos filtros de aviso;
+
+se os arquivos instalados correspondem à mesma versão de correção.
+
+Problema: o filtro Dentro do prazo traz OS próxima do vencimento
+
+Confira a data prevista e compare-a com a data atual do servidor.
+
+Depois, revise o cálculo de limite no controller e a classificação na view. A regra deve ser idêntica nos dois pontos: até cinco dias, inclusive, a OS é próxima do vencimento; a partir de seis dias, entra em dentro do prazo.
+
+Problema: o nome do técnico não é atualizado
+
+Confira se:
+
+tecnico_id está preenchido;
+
+o ID aponta para o funcionário correto;
+
+o funcionário continua cadastrado;
+
+a view utiliza o nome resolvido pelo ID;
+
+a tela não está exibindo somente o campo textual legado tecnico.
+
+A mesma lógica se aplica ao relacionamento com empresas por empresa_id.
+
+Problema: o técnico não vê uma OS
+
+Confira:
+
+o tecnico_id registrado na OS;
+
+o ID do funcionário conectado;
+
+o status ativo do funcionário;
+
+o papel cadastrado;
+
+a condição de acesso do controller;
+
+a regra de compatibilidade para registros antigos sem tecnico_id.
+
+Problema: o filtro de status não retorna uma OS importada
+
+Compare o valor armazenado com as opções permitidas no filtro. Observe acentuação e capitalização. Se necessário, ajuste o tratamento de variantes no controller, sem alterar os dados em massa antes de uma auditoria.
+
+12. Plano de testes de regressão
+
+Qualquer alteração no módulo deve ser validada para garantir que uma correção pontual não prejudique funcionalidades que já estavam funcionando.
+
+12.1 Testes de status e avisos
+
+Considere a data atual do ambiente como referência.
+
+Caso de teste
+
+	
+
+Resultado esperado
+
+
+
+
+OS ativa com data prevista ontem
+
+	
+
+Aviso Atrasada.
+
+
+
+
+OS ativa com data prevista hoje
+
+	
+
+Aviso Próxima do vencimento.
+
+
+
+
+OS ativa com data prevista daqui a 3 dias
+
+	
+
+Aviso Próxima do vencimento.
+
+
+
+
+OS ativa com data prevista daqui a 5 dias
+
+	
+
+Aviso Próxima do vencimento.
+
+
+
+
+OS ativa com data prevista daqui a 6 dias
+
+	
+
+Sem aviso de risco; deve entrar no filtro Dentro do prazo.
+
+
+
+
+OS sem data prevista
+
+	
+
+Sem aviso; não entra nos filtros de risco.
+
+
+
+
+OS concluída com status Concluída
+
+	
+
+Sem aviso de risco.
+
+
+
+
+OS concluída com status concluído
+
+	
+
+Sem aviso de risco.
+
+
+
+
+OS cancelada com status Cancelado
+
+	
+
+Sem aviso de risco.
+
+
+
+
+OS cancelada com status cancelado
+
+	
+
+Sem aviso de risco.
+
+
+
+
+OS com data realizada preenchida
+
+	
+
+Não deve aparecer nos filtros de risco.
+
+O resultado da coluna de aviso deve ser coerente com o filtro aplicado.
+
+12.2 Testes de funcionalidades
+A listagem abre sem erro.
+Criar OS funciona.
+Editar OS funciona conforme as permissões.
+Excluir OS funciona conforme as permissões.
+A empresa é selecionada entre os clientes ativos.
+O técnico é selecionado entre os funcionários ativos e papéis permitidos.
+A mudança do nome no cadastro mestre é refletida quando a OS usa o ID.
+Os status válidos são Aberto, Pendente, Concluída e Cancelado.
+Em andamento não aparece como opção de status.
+A data realizada no futuro é recusada.
+Os filtros de empresa, técnico, status e datas funcionam.
+O filtro Atrasada não inclui OS concluídas ou canceladas.
+O filtro Próxima do vencimento respeita a janela de cinco dias.
+O filtro Dentro do prazo não inclui OS atrasadas ou próximas do vencimento.
+Usuários sem permissão não conseguem contornar as regras acessando URLs diretamente.
+A versão instalada passou pela validação de sintaxe.
+A migração não foi executada novamente.
+
+Sempre que possível, os testes de criação, edição, exclusão e alteração de status devem ser feitos em ambiente de homologação ou com registros de teste controlados.
+
+13. Melhorias técnicas recomendadas para o futuro
+
+As recomendações a seguir são melhorias possíveis, não funcionalidades que devem ser consideradas já implementadas.
+
+13.1 Centralizar a normalização de status
+
+Atualmente, as verificações de status podem estar distribuídas entre controller e view.
+
+Uma melhoria seria criar métodos auxiliares para:
+
+normalizar o status;
+
+identificar se uma OS está concluída;
+
+identificar se uma OS está cancelada;
+
+identificar se uma OS deve receber aviso;
+
+determinar a categoria do aviso.
+
+Isso reduz o risco de a listagem e os filtros implementarem regras diferentes.
+
+13.2 Centralizar a regra de vencimento
+
+A classificação de atraso e proximidade pode ser extraída para uma função reutilizável, desde que a arquitetura e a versão do Perfex permitam essa organização sem efeitos colaterais.
+
+O objetivo é que a lógica não seja duplicada em diferentes arquivos. Uma refatoração dessa natureza deve ser feita em uma alteração separada, com testes, e não misturada a uma correção urgente.
+
+13.3 Criar testes automatizados
+
+Os casos de fronteira dos cinco dias podem ser automatizados para evitar regressões.
+
+Os testes mais importantes são:
+
+hoje;
+
+hoje + 5 dias;
+
+hoje + 6 dias;
+
+ontem;
+
+data vazia;
+
+OS concluída;
+
+OS cancelada;
+
+OS realizada.
+
+Isso é particularmente útil porque pequenos ajustes em datas e condições SQL podem produzir erros que só aparecem em dias específicos.
+
+13.4 Padronizar os valores de status
+
+No futuro, pode ser útil definir uma representação interna única para cada status e separar essa representação do rótulo exibido ao usuário.
+
+Essa mudança deve ser planejada com cuidado, pois existem dados importados e registros históricos. Não se deve fazer uma atualização geral no banco sem identificar todas as dependências.
+
+13.5 Registrar o histórico de alterações
+
+Para evoluir o projeto com segurança, mantenha um registro de:
+
+data da alteração;
+
+arquivos modificados;
+
+motivo;
+
+regra de negócio afetada;
+
+testes realizados;
+
+resultado da validação;
+
+eventual script SQL executado.
+
+O uso de Git, com commits pequenos e descritivos, é recomendável para rastrear as mudanças e facilitar reversões.
+
+14. Histórico do projeto
+
+Data
+
+	
+
+Evento
+
+
+
+
+Setembro–outubro de 2026
+
+	
+
+Desenvolvimento e ajustes do módulo de Ordens de Serviço para Perfex CRM 3.4.1.
+
+
+
+
+Durante o desenvolvimento
+
+	
+
+Integração das empresas e técnicos com os cadastros nativos do Perfex, utilizando IDs.
+
+
+
+
+Antes da migração
+
+	
+
+Preparação e validação da importação da aba 2026 da planilha.
+
+
+
+
+16/10/2026
+
+	
+
+Migração das OS de 2026 confirmada pelo usuário como concluída com sucesso.
+
+
+
+
+16–18/10/2026
+
+	
+
+Inclusão e confirmação funcional do status Cancelado.
+
+
+
+
+18/10/2026
+
+	
+
+Correções para que OS concluídas/canceladas não recebam avisos incorretos.
+
+
+
+
+18/10/2026
+
+	
+
+Ajustes no filtro Dentro do prazo e definição de cinco dias para o aviso Próxima do vencimento.
+
+15. Resumo para o desenvolvedor que assumir o projeto
+
+O módulo de Ordens de Serviço é uma extensão personalizada do Perfex CRM 3.4.1. Ele mantém os dados operacionais em uma tabela própria e utiliza os clientes e funcionários do Perfex como cadastros mestres.
+
+Os IDs empresa_id e tecnico_id são importantes para manter os relacionamentos corretos. Não substitua essa abordagem por comparação de nomes sem uma justificativa específica.
+
+A migração importou somente a aba de 2026, com 1.806 OS como volume de referência. Os 377 valores textuais identificados como monetários foram convertidos após confirmação, os textos não monetários foram preservados para conferência, quatro valores negativos foram separados para revisão e sete pares de linhas duplicadas após normalização foram mantidos. A migração foi confirmada como concluída e não deve ser repetida para corrigir problemas da interface.
+
+Os status vigentes são Aberto, Pendente, Concluída e Cancelado. Os dados importados podem apresentar diferenças de caixa e acentuação, por isso as verificações do código precisam reconhecer as variantes relevantes.
+
+A regra de avisos vigente é:
+
+data anterior a hoje: Atrasada;
+
+data de hoje até hoje + 5 dias: Próxima do vencimento;
+
+data posterior a hoje + 5 dias: entra no filtro Dentro do prazo;
+
+OS concluídas, canceladas, realizadas ou sem data prevista: não devem receber avisos de risco.
+
+Antes de qualquer modificação, confira os arquivos efetivamente instalados, faça backup, revise controller e view em conjunto e execute os testes de regressão. A validação de sintaxe PHP é necessária, mas não substitui a validação funcional dentro do Perfex.
+
+Regra final de manutenção: preservar o que já funciona, mudar uma regra de cada vez, testar o comportamento real e documentar cada alteração para que o próximo desenvolvedor consiga continuar o projeto sem precisar reconstruir suas decisões técnicas do zero.
